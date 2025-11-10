@@ -1,0 +1,48 @@
+1. transcction varibales
+    - book name
+    - book id
+    - isbn
+    - cover iomage
+    - author
+    - borrower name, address, contact
+    - borrow date
+    - transac ID
+    - claim expiry date
+    - isClaimed
+    - due date(borrow)
+    - status
+
+ 2. under view book ang waiting list
+    - tanggalon ang waiting list sa menu
+    - create table sa waiting list
+    - if borrowed: borrow book ->
+
+3. queue. kung mahuman ang previous nga borrower ayha pa mabutang ang claim date.
+    ayha pod mabutang ang borrow date og due date kung na claim na.
+
+4. status sa borrowed kay (waiting, borrowed, overdue)
+sa home kay (due today nga borrowed)
+expiring today (nagreserve pero wala gi claim, karon maexpire)3
+
+
+
+BORROW BOOK
+ENTER BORROWER AND BORROW TRANSACTION DETAILS
+CONFIRM
+STORE IN BORROWEDBOOK TABLE
+BORROWER GETS LISTED IN QUEUE(HE IS CURRENTLY THE BORROWER)
+UPDATES BOOK TABLE
+BOOK GETS NEW BORROWER
+NEW BORROWER GETS LISTED IN THE QUEUE NEXT TO THE CURRENT BORROWER
+CURRENT BORROWER RETURNS THE BOOK
+CURRENT BORROWER GETS REMOVED FROM THE QUEUE
+THE BORROW QUEUE GOT UPDATED
+THE BOOK STATUS GOT UPDATED TO WAITING TO BE CLAIMED
+IF BOOK NOT CLAIMED WITHIN THE EXPIRY DATE
+    THEN THE BORROWER TO CLAIM THAT BOOK GOT REMOVED IN THE LIST
+    THEN THE NEXT BORROWER AFTER THAT BORROWER IS NOW THE CURRENT BORROWER WAITING TO CLAIM THE BOOK
+ELSE
+    MARK THE BOOK AS CLAIMED
+    UPDATE THE BOOK TABLE
+    UPDATE THE BORROWEDBOOK TABLE
+
