@@ -35,15 +35,6 @@ public class bookController {
         return bookRepo.findById(id).orElse(null);
     }
 
-    @PutMapping("/borrow/{id}")
-    public Book borrowBook(@PathVariable Long id, @RequestBody Book book) {
-        Book existingBook = bookRepo.findById(id).orElse(null);
-        if (existingBook != null) {
-            existingBook.setIsAvailable(book.getIsAvailable());
-            return bookRepo.save(existingBook);
-        }
-        return null;
-    }
 
     @PutMapping("/update/{id}")
     public Book updateBook(@PathVariable Long id, @RequestBody Book book) {

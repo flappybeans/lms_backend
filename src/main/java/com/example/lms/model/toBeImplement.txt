@@ -12,7 +12,7 @@
     - due date(borrow)
     - status
 
- 2. under view book ang waiting list
+ 2. under view book ang waiting list 
     - tanggalon ang waiting list sa menu
     - create table sa waiting list
     - if borrowed: borrow book ->

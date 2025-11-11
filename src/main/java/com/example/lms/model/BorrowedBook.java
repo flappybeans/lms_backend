@@ -20,6 +20,7 @@ public class BorrowedBook {
     private String borrowerAddress;
     private String borrowerContact;
 
+    private Integer queueNumber;
     private String transactionId;
     private String claimExpiryDate;
     private String isClaimed;
@@ -28,4 +29,5 @@ public class BorrowedBook {
     private String duration;
     private String dueDate;
     private String borrowDate;
+
 }
