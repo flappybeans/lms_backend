@@ -2,6 +2,8 @@ package com.example.lms.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Entity
 @Table(name = "borrowed_books")
@@ -22,12 +24,12 @@ public class BorrowedBook {
 
     private Integer queueNumber;
     private String transactionId;
-    private String claimExpiryDate;
-    private String isClaimed;
+    private LocalDateTime claimExpiryDate;
     private String remarks;
 
     private String duration;
-    private String dueDate;
-    private String borrowDate;
+    private LocalDateTime dueDate;
+    private LocalDateTime borrowDate;
+    private LocalDateTime returnDate;
 
 }

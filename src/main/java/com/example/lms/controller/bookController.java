@@ -27,12 +27,15 @@ public class bookController {
 
     @PostMapping("/add")
     public Book addBook(@RequestBody Book book) {
+        book.setBorrowedTimes(0);
         return bookRepo.save(book);
     }
 
-    @GetMapping("/getbook/{id}")
-    public Book getBookById(@PathVariable Long id) {
-        return bookRepo.findById(id).orElse(null);
+    @GetMapping("/getbook/{isbn}")
+    public ResponseEntity<Book> getBookByIsbn(@PathVariable String isbn) {
+        return bookRepo.findByIsbn(isbn)
+                .map(book -> ResponseEntity.ok(book))
+                .orElse(ResponseEntity.notFound().build());
     }
 
 

@@ -18,7 +18,7 @@ public class Book {
     private String isAvailable;
     private String coverImage;
     private String isbn;
-    private String borrowedTimes;
+    private Integer borrowedTimes;
     private String location;
     private String currentBorrowerId;
 }
