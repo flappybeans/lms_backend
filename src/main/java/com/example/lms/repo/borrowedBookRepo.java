@@ -1,5 +1,6 @@
 package com.example.lms.repo;
 
+import com.example.lms.model.Book;
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.example.lms.model.BorrowedBook;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
@@ -11,15 +12,17 @@ import java.util.Optional;
 @RepositoryRestResource
 public interface borrowedBookRepo extends JpaRepository<BorrowedBook, Long> {
     List<BorrowedBook> findByIsbn(String isbn);
-    List<BorrowedBook> findByStatus(String status);
-    List<BorrowedBook> findByStatusNotOrderByQueueNumberAsc(String status);
+    List<BorrowedBook> findByStatusIn(List<String> statuses);
+    List<BorrowedBook> findByStatusNotInOrderByQueueNumberAsc(List<String> statuses);
+
 
     Optional<BorrowedBook> findByTransactionId(String transactionId);
-    List<BorrowedBook> findByStatusOrderByReturnDateDesc(String status);
+    List<BorrowedBook> findByStatusInOrderByReturnDateDesc(List<String> statuses);
 
-    List<BorrowedBook> findByDueDateBetweenOrderByDueDateAsc(LocalDateTime start, LocalDateTime end);
+    List<BorrowedBook> findByStatusNotInAndDueDateBetweenOrderByDueDateAsc(List<String> statuses, LocalDateTime start, LocalDateTime end);
 
-    List<BorrowedBook> findByIsbnAndStatusNotOrderByQueueNumberAsc(String isbn, String status);
+    List<BorrowedBook> findByIsbnAndStatusNotInOrderByQueueNumberAsc(String isbn, List<String> statuses);
+
     List<BorrowedBook> findByStatusAndClaimExpiryDateBetweenOrderByClaimExpiryDateAsc(String status,LocalDateTime start, LocalDateTime end);
 
 

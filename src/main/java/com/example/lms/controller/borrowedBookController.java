@@ -5,6 +5,7 @@ import com.example.lms.model.BorrowedBook;
 
 import com.example.lms.repo.bookRepo;
 import com.example.lms.repo.borrowedBookRepo;
+import com.example.lms.service.BorrowService;
 import org.hibernate.annotations.processing.Find;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,30 +32,51 @@ public class borrowedBookController {
 
     @Autowired
     private bookRepo bookRepo;
+    
+    @Autowired
+    private BorrowService borrowService;
 
-    public borrowedBookController(borrowedBookRepo borrowedBookRepo, bookRepo bookRepo) {
+    public borrowedBookController(borrowedBookRepo borrowedBookRepo, bookRepo bookRepo, BorrowService borrowService) {
         this.borrowedBookRepo = borrowedBookRepo;
         this.bookRepo = bookRepo;
-
+        this.borrowService = borrowService;
     }
 
     @GetMapping("/get")
     public List<BorrowedBook> getAllBooks() {
-        return borrowedBookRepo.findByStatusNotOrderByQueueNumberAsc("Returned");
+        return borrowedBookRepo.findByStatusNotInOrderByQueueNumberAsc(
+                List.of("Returned", "Cancelled", "Unclaimed")
+        );
     }
+
+    @PatchMapping("/checkDue")
+    public ResponseEntity<String> checkDue() {
+        borrowService.checkDueBooks();
+        return ResponseEntity.ok("Due books checked.");
+    }
+
+
+
 
     @GetMapping("/queue/{isbn}")
     public List<BorrowedBook> getQueueByIsbn(@PathVariable String isbn) {
-        return borrowedBookRepo.findByIsbnAndStatusNotOrderByQueueNumberAsc(isbn, "Returned");
+        return borrowedBookRepo.findByIsbnAndStatusNotInOrderByQueueNumberAsc(
+                isbn,
+                List.of("Returned", "Cancelled", "Unclaimed")
+        );
     }
 
     @GetMapping("/dueToday")
     public List<BorrowedBook> getDueToday() {
         LocalDate today = LocalDate.now();
-        LocalDateTime startOfDay = today.atStartOfDay();       // 2025-11-12T00:00:00
-        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);  // 2025-11-12T23:59:59.999999999
+        LocalDateTime startOfDay = today.atStartOfDay();      // 00:00:00
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX); // 23:59:59.999999999
 
-        return borrowedBookRepo.findByDueDateBetweenOrderByDueDateAsc(startOfDay, endOfDay);
+        return borrowedBookRepo.findByStatusNotInAndDueDateBetweenOrderByDueDateAsc(
+                List.of("Returned", "Cancelled", "Unclaimed"),
+                startOfDay,
+                endOfDay
+        );
     }
 
     @GetMapping("/claimExpiry")
@@ -62,7 +84,7 @@ public class borrowedBookController {
         LocalDate today = LocalDate.now();
         LocalDateTime startOfDay = today.atStartOfDay();       // 2025-11-12T00:00:00
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);  // 2025-11-12T23:59:59.999999999
-// go fort push
+
         return borrowedBookRepo.findByStatusAndClaimExpiryDateBetweenOrderByClaimExpiryDateAsc("Reserved – Pick Up",startOfDay, endOfDay);
     }
 
@@ -109,8 +131,6 @@ public class borrowedBookController {
     }
 
 
-
-
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         Optional<BorrowedBook> optionalBook = borrowedBookRepo.findById(id);
@@ -121,7 +141,6 @@ public class borrowedBookController {
         }
         return ResponseEntity.notFound().build();
     }
-
 
 
     @PutMapping("/returnBook")
@@ -135,7 +154,7 @@ public class borrowedBookController {
 
         // 2️⃣ Find the book being returned (the one with status = "Borrowed")
         BorrowedBook bookToReturn = sameBooks.stream()
-                .filter(b -> "Borrowed".equalsIgnoreCase(b.getStatus()))
+                .filter(b -> "Borrowed".equalsIgnoreCase(b.getStatus() ) || "Overdue".equalsIgnoreCase(b.getStatus()))
                 .findFirst()
                 .orElse(null);
 
@@ -210,9 +229,26 @@ public class borrowedBookController {
     }
 
     @GetMapping("/getReturned")
-    public List<BorrowedBook> getReturnedBooks() {
-        return borrowedBookRepo.findByStatusOrderByReturnDateDesc("Returned");
+    public List<BorrowedBook> getReturnedAndCancelledBooks() {
+        return borrowedBookRepo.findByStatusInOrderByReturnDateDesc(
+                List.of("Returned", "Cancelled", "Unclaimed")
+        );
     }
+
+
+    @PutMapping("/cancel")
+    public ResponseEntity<String> cancel(@RequestBody BorrowedBook request) {
+        BorrowedBook book = borrowedBookRepo.findByTransactionId(request.getTransactionId())
+                .orElse(null);
+
+        if (book == null) {
+            return ResponseEntity.badRequest().body("Transaction ID not found.");
+        }
+
+        return ResponseEntity.ok(borrowService.cancelBorrow(book));
+    }
+
+
 
 
 
