@@ -64,8 +64,8 @@ public class BorrowService {
 
 // If no waiting, book must be available
         bookEntity.setIsAvailable("true");
+        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + 1);
         bookEntity.setCurrentBorrowerId(null);
-        bookRepo.save(bookEntity);
 
         bookRepo.save(bookEntity);
 
@@ -90,6 +90,7 @@ public class BorrowService {
             if ("Borrowed".equalsIgnoreCase(book.getStatus())) {
                 if (book.getDueDate() != null && book.getDueDate().isBefore(now)) {
                     book.setStatus("Overdue");
+                    book.setPenalty("200");
                     overdueCount++;
                 }
             }

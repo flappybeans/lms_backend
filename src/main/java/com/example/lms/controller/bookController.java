@@ -28,6 +28,7 @@ public class bookController {
     @PostMapping("/add")
     public Book addBook(@RequestBody Book book) {
         book.setBorrowedTimes(0);
+        book.setAvailableBooks(5);
         return bookRepo.save(book);
     }
 

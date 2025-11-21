@@ -10,6 +10,7 @@ import org.hibernate.annotations.processing.Find;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -99,8 +100,11 @@ public class borrowedBookController {
         }
 
         // 2️⃣ If available, mark as borrowed
-        if ("true".equalsIgnoreCase(book.getIsAvailable())) {
-            book.setIsAvailable("false");
+        if (book.getAvailableBooks() > 0) {
+            if(book.getAvailableBooks() == 1){
+                book.setIsAvailable("false");
+            }
+            book.setAvailableBooks(book.getAvailableBooks() - 1);
             book.setCurrentBorrowerId(borrowedBook.getTransactionId());
             bookRepo.save(book);
 
@@ -113,7 +117,6 @@ public class borrowedBookController {
         // 3️⃣ If not available, put in waiting queue
         else {
             List<BorrowedBook> sameBooks = borrowedBookRepo.findByIsbn(borrowedBook.getIsbn());
-
             // Get the highest queue number so far
             int maxQueue = sameBooks.stream()
                     .mapToInt(b -> b.getQueueNumber() == null ? 0 : b.getQueueNumber())
@@ -142,74 +145,82 @@ public class borrowedBookController {
         return ResponseEntity.notFound().build();
     }
 
-
-    @PutMapping("/returnBook")
-    public ResponseEntity<String> returnBook(@RequestBody BorrowedBook borrowedBook) {
-        // 1️⃣ Find all borrow records with the same ISBN
-        List<BorrowedBook> sameBooks = borrowedBookRepo.findByIsbn(borrowedBook.getIsbn());
-
-        if (sameBooks.isEmpty()) {
+    @PutMapping("/payPenalty/{transactionId}")
+    public ResponseEntity<String> payPenalty(@PathVariable String transactionId) {
+        BorrowedBook book = borrowedBookRepo.findByTransactionId(transactionId).orElse(null);
+        if (book == null) {
             return ResponseEntity.notFound().build();
         }
 
-        // 2️⃣ Find the book being returned (the one with status = "Borrowed")
-        BorrowedBook bookToReturn = sameBooks.stream()
-                .filter(b -> "Borrowed".equalsIgnoreCase(b.getStatus() ) || "Overdue".equalsIgnoreCase(b.getStatus()))
-                .findFirst()
-                .orElse(null);
+        book.setPenalty("Paid");
+        borrowedBookRepo.save(book);
+
+        return ResponseEntity.ok("Penalty paid successfully");
+    }
+
+    @PutMapping("/returnBook/{transactionId}")
+    public ResponseEntity<String> returnBook(@PathVariable String transactionId) {
+
+        // 1️⃣ Find the borrow record
+        BorrowedBook bookToReturn = borrowedBookRepo.findByTransactionId(transactionId).orElse(null);
 
         if (bookToReturn == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("No borrowed book found for that ISBN to return.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Transaction ID not found.");
         }
 
-        // 3️⃣ Mark it as returned
+        if (bookToReturn.getStatus().equalsIgnoreCase("Overdue")
+                && !"Paid".equals(bookToReturn.getPenalty())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Book overdue. Penalty not paid.");
+        }
+
+
+        // 2️⃣ Mark as returned
         bookToReturn.setStatus("Returned");
-        LocalDateTime dateTime = LocalDateTime.now();
-        bookToReturn.setReturnDate(dateTime);
+        bookToReturn.setReturnDate(LocalDateTime.now());
         bookToReturn.setQueueNumber(0);
         borrowedBookRepo.save(bookToReturn);
 
+        // 3️⃣ Update book stock (+1)
+        Book bookEntity = bookRepo.findByIsbn(bookToReturn.getIsbn()).orElse(null);
 
+        if (bookEntity == null) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Book record missing.");
+        }
 
+        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + 1);
+        bookEntity.setIsAvailable("true");
+        bookRepo.save(bookEntity);
 
-        // 4️⃣ Find the next borrower in queue (lowest queueNumber + "Waiting" status)
+        // 4️⃣ Find next borrower in queue
+        List<BorrowedBook> sameBooks = borrowedBookRepo.findByIsbn(bookToReturn.getIsbn());
+
         BorrowedBook nextBorrower = sameBooks.stream()
                 .filter(b -> "Waiting".equalsIgnoreCase(b.getStatus()))
                 .sorted(Comparator.comparingInt(BorrowedBook::getQueueNumber))
                 .findFirst()
                 .orElse(null);
 
-        if (nextBorrower != null) {
-            // 5️⃣ Update next borrower to For pickup
+        // 5️⃣ Process next in queue ONLY IF availableBooks > 0
+        if (nextBorrower != null && bookEntity.getAvailableBooks() > 0) {
+
             nextBorrower.setStatus("Reserved – Pick Up");
-            LocalDateTime expTime = LocalDateTime.now();
-            nextBorrower.setClaimExpiryDate(expTime.plusDays(2));
+            nextBorrower.setClaimExpiryDate(LocalDateTime.now().plusDays(2));
             borrowedBookRepo.save(nextBorrower);
 
-            // 6️⃣ Update the Book entity
-            Book bookEntity = bookRepo.findByIsbn(borrowedBook.getIsbn()).orElse(null);
-            if (bookEntity != null) {
-                bookEntity.setIsAvailable("false");
-                bookEntity.setCurrentBorrowerId(nextBorrower.getTransactionId());
-                bookEntity.setBorrowedTimes(bookEntity.getBorrowedTimes() + 1);
-                bookRepo.save(bookEntity);
-            }
+            // Book becomes NOT available since this reservation consumes a copy
+            bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() - 1);
+            bookRepo.save(bookEntity);
 
-            return ResponseEntity.ok("Book returned successfully. Next borrower is now set.");
-        } else {
-            // 7️⃣ No one waiting → make book available again
-            Book bookEntity = bookRepo.findByIsbn(borrowedBook.getIsbn()).orElse(null);
-            if (bookEntity != null) {
-                bookEntity.setIsAvailable("true");
-                bookEntity.setCurrentBorrowerId(null);
-                bookEntity.setBorrowedTimes(bookEntity.getBorrowedTimes() + 1);
-                bookRepo.save(bookEntity);
-            }
-
-            return ResponseEntity.ok("Book returned successfully. No one in queue, book now available.");
+            return ResponseEntity.ok("Book returned successfully!");
         }
+
+        return ResponseEntity.ok("Book returned successfully!");
     }
+
+
 
     @PutMapping("/pickUp/{transactionId}")
     public ResponseEntity<String> pickUpBook(@PathVariable String transactionId) {
@@ -247,9 +258,6 @@ public class borrowedBookController {
 
         return ResponseEntity.ok(borrowService.cancelBorrow(book));
     }
-
-
-
 
 
 }

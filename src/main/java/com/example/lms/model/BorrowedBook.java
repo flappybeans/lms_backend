@@ -21,6 +21,9 @@ public class BorrowedBook {
     private String borrowerName;
     private String borrowerAddress;
     private String borrowerContact;
+    private String borrowerIdType;
+    private String borrowerIdNumber;
+    private String penalty;
 
     private Integer queueNumber;
     private String transactionId;

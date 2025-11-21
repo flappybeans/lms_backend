@@ -16,6 +16,7 @@ public class Book {
     private String description;
     private String genre;
     private String isAvailable;
+    private int AvailableBooks;
     private String coverImage;
     private String isbn;
     private Integer borrowedTimes;
