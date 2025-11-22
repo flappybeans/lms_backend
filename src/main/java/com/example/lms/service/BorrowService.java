@@ -64,7 +64,7 @@ public class BorrowService {
 
 // If no waiting, book must be available
         bookEntity.setIsAvailable("true");
-        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + 1);
+        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + bookToCancel.getCount());
         bookEntity.setCurrentBorrowerId(null);
 
         bookRepo.save(bookEntity);

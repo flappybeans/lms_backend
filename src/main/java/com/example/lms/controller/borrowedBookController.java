@@ -90,8 +90,8 @@ public class borrowedBookController {
     }
 
 
-    @PostMapping("/add")
-    public ResponseEntity<BorrowedBook> addBook(@RequestBody BorrowedBook borrowedBook) {
+    @PostMapping("/add/{count}")
+    public ResponseEntity<BorrowedBook> addBook(@PathVariable int count, @RequestBody BorrowedBook borrowedBook) {
         // 1️⃣ Find the book by ISBN
         Book book = bookRepo.findByIsbn(borrowedBook.getIsbn()).orElse(null);
 
@@ -104,11 +104,12 @@ public class borrowedBookController {
             if(book.getAvailableBooks() == 1){
                 book.setIsAvailable("false");
             }
-            book.setAvailableBooks(book.getAvailableBooks() - 1);
+            book.setAvailableBooks(book.getAvailableBooks() - count);
             book.setCurrentBorrowerId(borrowedBook.getTransactionId());
             bookRepo.save(book);
 
             borrowedBook.setStatus("Borrowed");
+            borrowedBook.setCount(count);
             borrowedBook.setQueueNumber(1);
             LocalDateTime dateTime = LocalDateTime.now();
             borrowedBook.setBorrowDate(dateTime);
@@ -160,14 +161,15 @@ public class borrowedBookController {
 
     @PutMapping("/returnBook/{transactionId}")
     public ResponseEntity<String> returnBook(@PathVariable String transactionId) {
-
         // 1️⃣ Find the borrow record
-        BorrowedBook bookToReturn = borrowedBookRepo.findByTransactionId(transactionId).orElse(null);
+        Optional<BorrowedBook> bookOptional = borrowedBookRepo.findByTransactionId(transactionId);
 
-        if (bookToReturn == null) {
+        if (bookOptional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Transaction ID not found.");
         }
+        
+        BorrowedBook bookToReturn = bookOptional.get();
 
         if (bookToReturn.getStatus().equalsIgnoreCase("Overdue")
                 && !"Paid".equals(bookToReturn.getPenalty())) {
@@ -190,7 +192,9 @@ public class borrowedBookController {
                     .body("Book record missing.");
         }
 
-        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + 1);
+
+        System.out.println(bookEntity.getAvailableBooks() + " - " + bookToReturn.getCount());
+        bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() + bookToReturn.getCount());
         bookEntity.setIsAvailable("true");
         bookRepo.save(bookEntity);
 
@@ -211,7 +215,7 @@ public class borrowedBookController {
             borrowedBookRepo.save(nextBorrower);
 
             // Book becomes NOT available since this reservation consumes a copy
-            bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() - 1);
+            bookEntity.setAvailableBooks(bookEntity.getAvailableBooks() - nextBorrower.getCount());
             bookRepo.save(bookEntity);
 
             return ResponseEntity.ok("Book returned successfully!");
